@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+CONTAINER_REGISTRY_NAME="acr0ct0hub0weu0pas"
+PROJECT_NAME="pas-${LOGICAL_ENVIRONMENT}"
+SERVICE_NAME="qa-testgen-interactive-dashboard"
+VERSION=$(cat ./VERSION)
+REPLICA_COUNT=1
+
+export CONTAINER_REGISTRY_NAME
+export PROJECT_NAME
+export SERVICE_NAME
+export VERSION
+export REPLICA_COUNT

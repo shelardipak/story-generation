@@ -1,0 +1,41 @@
+---
+parameters:
+  - name: environment
+    type: string
+    values:
+      - fat
+      - prd
+      - sit
+      - uat
+  - name: location
+    type: string
+    default: westeurope
+  - name: logicalEnvironment
+    type: string
+
+steps:
+  - template: steps/export-service-connection.yml@templates
+    parameters:
+      serviceConnectionName: sub-customer-${{ parameters.environment }}-t1-01-deploy
+  - template: steps/get-subscription-id.yml@templates
+    parameters:
+      serviceConnectionName: sub-customer-${{ parameters.environment }}-t1-01-deploy
+      subscriptionName: sub-customer-${{ parameters.environment }}-t1-01
+  - template: steps/get-short-location.yml@templates
+    parameters:
+      location: ${{ parameters.location }}
+  - bash: |
+      set -euo pipefail
+      chmod +x $(System.DefaultWorkingDirectory)/scripts/deploy.sh
+      $(System.DefaultWorkingDirectory)/scripts/deploy.sh
+    displayName: Deploy
+    env:
+      ADO_PROJECT_NAME: $(System.TeamProject)
+      AZURE_CLIENT_ID: $(azureClientId)
+      AZURE_CLIENT_SECRET: $(azureClientSecret)
+      AZURE_CONFIG_DIR: $(System.DefaultWorkingDirectory)/.azure
+      AZURE_SUBSCRIPTION_ID: $(azureSubscriptionId)
+      AZURE_TENANT_ID: $(azureTenantId)
+      ENVIRONMENT: ${{ parameters.environment }}
+      LOGICAL_ENVIRONMENT: ${{ parameters.logicalEnvironment }}
+      SHORT_LOCATION: $(shortLocation)

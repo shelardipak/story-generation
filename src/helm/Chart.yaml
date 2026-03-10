@@ -1,0 +1,4 @@
+---
+apiVersion: v2
+name: example-service
+version: 1.0.0

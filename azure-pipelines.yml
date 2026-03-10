@@ -1,0 +1,99 @@
+---
+trigger: none
+parameters:
+  - name: action
+    displayName: Action (select "Deploy" to deploy from feature branches)
+    type: string
+    values:
+      - Default
+      - Deploy
+resources:
+  repositories:
+    - repository: self
+    - repository: openshift-deployment-template-element
+      type: git
+      name: DevOps/openshift-deployment-template-element
+      ref: refs/tags/2.1.2
+    - repository: openshift-service-template-element
+      type: git
+      name: DevOps/openshift-service-template-element
+      ref: refs/tags/2.0.3
+    - repository: openshift-secret-template-element
+      type: git
+      name: DevOps/openshift-secret-template-element
+      ref: refs/tags/2.0.5
+    - repository: openshift-configmap-template-element
+      type: git
+      name: DevOps/openshift-configmap-template-element
+      ref: refs/tags/2.0.2
+    - repository: templates
+      type: git
+      name: DevOps/azp-templates
+      ref: refs/tags/9
+    - repository: openshift-route-template-element
+      type: git
+      name: DevOps/openshift-route-template-element
+      ref: refs/tags/2.0.2
+
+
+extends:
+  template: pipelines/compound.yml@templates
+  parameters:
+    buildSteps:
+      - template: steps/build-container-image.yml@templates
+        parameters:
+          containerFilePath: $(System.DefaultWorkingDirectory)/src/Dockerfile
+          containerRegistryId: /subscriptions/53f0f9ac-7777-4363-aab1-c7f347edc467/resourceGroups/rg-ct-hub-weu-containerregistry/providers/Microsoft.ContainerRegistry/registries/acr0ct0hub0weu0pas
+          contextPath: $(System.DefaultWorkingDirectory)/src
+          imageNameAndTag: wealth/qa-testgen-interactive-dashboard:$(version)
+          serviceConnectionName: sub-customer-hub-t1-01-build
+          buildOptions: "--ulimit nofile=32768:32768"
+      - bash: |
+          set -euo pipefail
+          cp $(Agent.BuildDirectory)/openshift-deployment-template-element/src/*.tpl $(System.DefaultWorkingDirectory)/src/helm/templates/
+          cp $(Agent.BuildDirectory)/openshift-service-template-element/src/*.tpl $(System.DefaultWorkingDirectory)/src/helm/templates/
+          cp $(Agent.BuildDirectory)/openshift-route-template-element/src/*.tpl $(System.DefaultWorkingDirectory)/src/helm/templates/
+          cp $(Agent.BuildDirectory)/openshift-secret-template-element/src/*.tpl $(System.DefaultWorkingDirectory)/src/helm/templates/
+          cp $(Agent.BuildDirectory)/openshift-configmap-template-element/src/*.tpl $(System.DefaultWorkingDirectory)/src/helm/templates/
+        displayName: Import Helm templates
+    checkoutSteps:
+      - checkout: self
+        path: s
+      - checkout: openshift-deployment-template-element
+        path: ./openshift-deployment-template-element
+      - checkout: openshift-service-template-element
+        path: ./openshift-service-template-element
+      - checkout: openshift-route-template-element
+        path: ./openshift-route-template-element
+      - checkout: openshift-secret-template-element
+        path: ./openshift-secret-template-element
+      - checkout: openshift-configmap-template-element
+        path: ./openshift-configmap-template-element
+    cleanRepoIgnores:
+      - src/helm/templates
+    deployStages:
+      - template: stages/deploy.yml@templates
+        parameters:
+          # Uncomment and update this to test config/secrets in a branch of wealth/fat-config without having to merge.
+          #configRef: PAS-1234/feature-branch
+          dependsOn: build
+          deploySteps:
+            - template: ./azure-pipelines.deploy.yml
+              parameters:
+                environment: fat
+                logicalEnvironment: foo
+          environment: fat
+          logicalEnvironment: foo
+          runIfNotMainOrMaster: ${{ eq(parameters.action, 'Deploy') }}
+    publishSteps:
+      - template: steps/push-container-image.yml@templates
+        parameters:
+          containerRegistryId: /subscriptions/53f0f9ac-7777-4363-aab1-c7f347edc467/resourceGroups/rg-ct-hub-weu-containerregistry/providers/Microsoft.ContainerRegistry/registries/acr0ct0hub0weu0pas
+          imageNameAndTag: wealth/qa-testgen-interactive-dashboard:$(version)
+          serviceConnectionName: sub-customer-hub-t1-01-build
+      - template: steps/delete-container-image.yml@templates
+        parameters:
+          imageNameAndTag: wealth/qa-testgen-interactive-dashboard:$(version)
+    testSteps:
+      - bash: $(System.DefaultWorkingDirectory)/scripts/test.sh
+        displayName: Test

@@ -1,0 +1,9 @@
+{{- include "deployment" .Values.deployment }}
+{{- include "service" .Values.service }}
+{{- include "route" .Values.route }}
+{{- range $secret := .Values.secrets }}
+{{- include "secret" $secret }}
+{{- end }}
+{{- range $configMap := .Values.configMaps }}
+{{- include "config-map" $configMap }}
+{{- end }}
